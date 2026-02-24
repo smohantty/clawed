@@ -51,6 +51,7 @@ src/
     mod.rs             Tool trait, ToolRegistry
     shell.rs           Shell command execution
     file.rs            read_file, write_file, list_dir, apply_patch
+    builtin.rs         echo, time, json utility tools
   skills/
     mod.rs             Types: LoadedSkill, SkillManifest, SkillTrust
     parser.rs          SKILL.md frontmatter + body parsing
@@ -70,6 +71,9 @@ src/
 | `write_file` | Write/create files with auto-mkdir (max 5 MiB) |
 | `list_dir` | List directory contents with types and sizes |
 | `apply_patch` | Search-and-replace file editing (requires unique match) |
+| `echo` | Echo back input message (useful for testing tool execution) |
+| `time` | Get current time, parse timestamps, or calculate time differences |
+| `json` | Parse, query, stringify, and validate JSON data |
 
 The shell tool inherits the full user environment and only strips sensitive variables (`API_KEY`, `SECRET`, `TOKEN`, etc.), so tools like `curl`, `git`, `docker` work normally.
 
@@ -115,11 +119,37 @@ Skills are scored against user input and the top 3 (within a 4000 token budget) 
 | Trust | Tool Access |
 |-------|-------------|
 | `Trusted` | Full access to all tools |
-| `Installed` | Read-only tools only (`read_file`, `list_dir`) |
+| `Installed` | Read-only tools only (`time`, `echo`, `json`, `read_file`, `list_dir`) |
 
 User skills (from `~/.clawed/skills/`) default to `Trusted`. If any active skill has `Installed` trust, tool access is restricted to the read-only set.
 
-## REPL Commands
+## REPL Mode
+
+Start the REPL with `cargo run` (no `-p` flag). Conversation context persists across messages — the agent remembers what you discussed and what tools returned. Use `/clear` to reset.
+
+```
+$ cargo run
+clawed v0.1.0
+Type /help for commands, /quit to exit.
+
+clawed> what files are in src/?
+[tool: list_dir]
+
+Here are the files in src/: main.rs, config.rs, agent.rs, repl.rs, ...
+
+clawed> now read main.rs and explain the startup sequence
+[tool: read_file]
+
+The startup sequence in main.rs works as follows: ...
+
+clawed> /clear
+(conversation cleared)
+
+clawed> /quit
+Goodbye!
+```
+
+### Commands
 
 | Command | Description |
 |---------|-------------|
