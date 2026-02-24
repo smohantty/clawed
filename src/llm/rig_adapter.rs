@@ -77,6 +77,15 @@ fn normalize_schema_recursive(schema: &mut JsonValue) {
     let has_properties = obj.contains_key("properties");
 
     if !is_object && !has_properties {
+        // Leaf property with no type and no combinator — default to "string" so
+        // backends that require a type (Gemini) don't reject the schema.
+        let has_type = obj.contains_key("type");
+        let has_combinator = obj.contains_key("anyOf")
+            || obj.contains_key("oneOf")
+            || obj.contains_key("allOf");
+        if !has_type && !has_combinator {
+            obj.insert("type".to_string(), JsonValue::String("string".to_string()));
+        }
         return;
     }
 

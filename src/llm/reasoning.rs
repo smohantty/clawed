@@ -217,7 +217,7 @@ impl Reasoning {
 - Call tools when they would help accomplish the task
 - Do NOT call the same tool repeatedly with similar arguments
 - If tools return empty or irrelevant results, answer with what you already know
-- Use the shell tool with curl, wget, or other CLI utilities for web requests, API calls, or fetching online data
+- For any web requests, API calls, or fetching online data, use the shell tool with curl or wget
 
 ## Tool Call Style
 - Do not narrate routine tool calls; just call the tool
