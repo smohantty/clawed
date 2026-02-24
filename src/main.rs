@@ -26,9 +26,9 @@ struct Cli {
     #[arg(short, long)]
     prompt: Option<String>,
 
-    /// LLM model to use
-    #[arg(long, default_value = "claude-sonnet-4-20250514")]
-    model: String,
+    /// LLM model to use (overrides the active backend's default)
+    #[arg(long)]
+    model: Option<String>,
 
     /// Disable skill loading
     #[arg(long)]
@@ -62,7 +62,13 @@ async fn main() {
     };
 
     // Apply CLI overrides
-    config.model = cli.model;
+    if let Some(model) = cli.model {
+        match config.backend {
+            config::LlmBackend::Anthropic => config.model = model,
+            config::LlmBackend::OpenAi => config.openai_model = model,
+            config::LlmBackend::Gemini => config.gemini_model = model,
+        }
+    }
     config.max_turns = cli.max_turns;
     config.skills_enabled = !cli.no_skills;
 

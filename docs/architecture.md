@@ -4,7 +4,7 @@ This document describes how clawed works end-to-end: startup, the agent loop, LL
 
 ## Overview
 
-Clawed is a minimal autonomous chat agent written in Rust. It connects to an LLM (currently Anthropic Claude via rig-core), gives it a set of tools, and runs a loop: the LLM decides what to do, clawed executes the tool calls, feeds results back, and repeats until the LLM returns a text response.
+Clawed is a minimal autonomous chat agent written in Rust. It connects to an LLM (Anthropic, OpenAI, or Gemini via rig-core), gives it a set of tools, and runs a loop: the LLM decides what to do, clawed executes the tool calls, feeds results back, and repeats until the LLM returns a text response.
 
 Two modes of operation:
 
@@ -18,7 +18,7 @@ Startup sequence in `main.rs`:
 ```
 CLI parse (clap)
     → ClawedConfig::from_env()      load .env, env vars
-    → create_llm_provider()          build Anthropic client via rig-core
+    → create_llm_provider()          build LLM client via rig-core (Anthropic/OpenAI/Gemini)
     → ToolRegistry::new()            create empty registry
     → register_dev_tools()           register all 8 tools
     → SkillRegistry::discover_all()  scan ~/.clawed/skills/
@@ -85,6 +85,16 @@ async fn complete_with_tools(request: ToolCompletionRequest) -> Result<ToolCompl
 ```
 
 The first is text-only completion; the second adds tool definitions and returns potential `ToolCall` values.
+
+### Provider Factory
+
+`create_llm_provider()` (`llm/mod.rs`) dispatches on `LlmBackend` to create the appropriate rig-core client:
+
+- **Anthropic**: `anthropic::Client::new(key)` → `client.completion_model(name)`
+- **OpenAI**: `openai::Client::new(key).completions_api()` → `client.completion_model(name)` (uses Chat Completions API, not Responses API)
+- **Gemini**: `gemini::Client::new(key)` → `client.completion_model(name)`
+
+All three return a `RigAdapter` wrapping the rig-core model, so the rest of clawed is backend-agnostic.
 
 ### Rig Adapter
 
@@ -254,10 +264,14 @@ Detected patterns are logged as warnings and the output is marked `sanitized="tr
 
 | Env Variable | Default | Description |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | *required* | Anthropic API key |
-| `CLAWED_MODEL` | `claude-sonnet-4-20250514` | Model to use |
-| `CLAWED_BACKEND` | `anthropic` | LLM backend |
+| `CLAWED_BACKEND` | `anthropic` | LLM backend (`anthropic`, `openai`, `gemini`) |
+| `ANTHROPIC_API_KEY` | *required for anthropic* | Anthropic API key |
+| `CLAWED_MODEL` | `claude-sonnet-4-20250514` | Anthropic model |
+| `OPENAI_API_KEY` | *required for openai* | OpenAI API key |
+| `OPENAI_MODEL` | `gpt-4o` | OpenAI model |
+| `GEMINI_API_KEY` | *required for gemini* | Gemini API key |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model |
 | `CLAWED_SKILLS_DIR` | `~/.clawed/skills` | Skills directory |
 | `CLAWED_MAX_TURNS` | `50` | Max agent loop iterations |
 
-CLI flags (`--model`, `--max-turns`, `--no-skills`) override env vars. The `.env` file is loaded from the current directory (and parent) via dotenvy.
+CLI flags (`--model`, `--max-turns`, `--no-skills`) override env vars. The `--model` flag overrides the active backend's model. The `.env` file is loaded from the current directory (and parent) via dotenvy.

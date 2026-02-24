@@ -31,7 +31,7 @@ RUST_LOG=clawed=debug cargo run                # Debug logging
 
 ## Known Gaps (see docs/missing-features.md)
 
-- Only Anthropic backend; rig-core supports OpenAI/Ollama too.
+- No Ollama backend yet (Anthropic, OpenAI, and Gemini are supported).
 - No streaming, no token usage reporting, no conversation persistence.
 - No tool confirmation/approval for destructive operations.
 - No workspace skills (project-local `.clawed/skills/`).

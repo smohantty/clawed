@@ -2,22 +2,28 @@
 
 Minimal self-sufficient Rust chat agent with tool use and skills.
 
-Built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstraction, starting with Anthropic. Designed to run locally on any machine — no containers, no sandboxes required.
+Built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstraction, supporting Anthropic, OpenAI, and Gemini backends. Designed to run locally on any machine — no containers, no sandboxes required.
 
 ## Quick Start
 
 ```bash
-# Set your API key
+# Anthropic (default)
 echo 'ANTHROPIC_API_KEY=sk-ant-...' > .env
+cargo run
 
-# Interactive REPL
+# OpenAI
+echo -e 'CLAWED_BACKEND=openai\nOPENAI_API_KEY=sk-...' > .env
+cargo run
+
+# Gemini
+echo -e 'CLAWED_BACKEND=gemini\nGEMINI_API_KEY=...' > .env
 cargo run
 
 # Single-shot mode
 cargo run -- -p "what files are in the current directory?"
 
-# Override model
-cargo run -- --model claude-sonnet-4-20250514 -p "explain this codebase"
+# Override model for any backend
+cargo run -- --model gpt-4o-mini -p "explain this codebase"
 ```
 
 ## CLI Options
@@ -27,7 +33,7 @@ clawed [OPTIONS]
 
 Options:
   -p, --prompt <PROMPT>        Single-shot mode: execute and exit
-      --model <MODEL>          LLM model [default: claude-sonnet-4-20250514]
+      --model <MODEL>          LLM model (overrides active backend's default)
       --no-skills              Disable skill loading
       --max-turns <MAX_TURNS>  Max agent iterations [default: 50]
   -h, --help                   Print help
@@ -158,13 +164,29 @@ Goodbye!
 | `/tools` | List available tools |
 | `/help` | Show help |
 
+## Backends
+
+Clawed supports three LLM backends via the `CLAWED_BACKEND` env var:
+
+| Backend | Value | API Key Env Var | Default Model |
+|---------|-------|-----------------|---------------|
+| Anthropic | `anthropic` (default) | `ANTHROPIC_API_KEY` | `claude-sonnet-4-20250514` |
+| OpenAI | `openai` | `OPENAI_API_KEY` | `gpt-4o` |
+| Gemini | `gemini` | `GEMINI_API_KEY` | `gemini-2.5-flash` |
+
+Only the API key for the selected backend is required. The `--model` CLI flag overrides the active backend's default model.
+
 ## Configuration
 
 | Env Variable | Default | Description |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | *required* | Anthropic API key |
-| `CLAWED_MODEL` | `claude-sonnet-4-20250514` | Model to use |
-| `CLAWED_BACKEND` | `anthropic` | LLM backend |
+| `CLAWED_BACKEND` | `anthropic` | LLM backend (`anthropic`, `openai`, `gemini`) |
+| `ANTHROPIC_API_KEY` | *required for anthropic* | Anthropic API key |
+| `CLAWED_MODEL` | `claude-sonnet-4-20250514` | Anthropic model |
+| `OPENAI_API_KEY` | *required for openai* | OpenAI API key |
+| `OPENAI_MODEL` | `gpt-4o` | OpenAI model |
+| `GEMINI_API_KEY` | *required for gemini* | Gemini API key |
+| `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model |
 | `CLAWED_SKILLS_DIR` | `~/.clawed/skills` | Skills directory |
 | `CLAWED_MAX_TURNS` | `50` | Max agent loop iterations |
 
