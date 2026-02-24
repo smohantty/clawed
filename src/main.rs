@@ -96,11 +96,17 @@ async fn main() {
         loaded_skills = registry.skills().to_vec();
     }
 
+    // Wrap skills in Arc for shared ownership between agent and tools
+    let skills = Arc::new(loaded_skills);
+
+    // Register skill tools (skill_list, load_skill)
+    tools.register_skill_tools(skills.clone()).await;
+
     // Create reasoning engine
     let reasoning = Reasoning::new(llm);
 
     // Create agent
-    let agent = Agent::new(reasoning, tools.clone(), loaded_skills, config.max_turns);
+    let agent = Agent::new(reasoning, tools.clone(), skills, config.max_turns);
 
     // Run in appropriate mode
     if let Some(prompt) = cli.prompt {

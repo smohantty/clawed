@@ -3,6 +3,7 @@
 pub mod builtin;
 pub mod file;
 pub mod shell;
+pub mod skill_tools;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -13,6 +14,7 @@ use tokio::sync::RwLock;
 
 use crate::error::ToolError;
 use crate::llm::ToolDefinition;
+use crate::skills::LoadedSkill;
 
 /// Output from a tool execution.
 #[derive(Debug, Clone)]
@@ -134,6 +136,15 @@ impl ToolRegistry {
         self.register(Arc::new(builtin::TimeTool::new())).await;
         self.register(Arc::new(builtin::JsonTool::new())).await;
         tracing::info!("Registered 8 development tools");
+    }
+
+    /// Register skill discovery and loading tools.
+    pub async fn register_skill_tools(&self, skills: Arc<Vec<LoadedSkill>>) {
+        self.register(Arc::new(skill_tools::SkillListTool::new(skills.clone())))
+            .await;
+        self.register(Arc::new(skill_tools::LoadSkillTool::new(skills)))
+            .await;
+        tracing::info!("Registered 2 skill tools");
     }
 }
 

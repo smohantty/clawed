@@ -1,5 +1,6 @@
 //! Core multi-turn agent loop.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use crate::error::LlmError;
@@ -12,7 +13,7 @@ use crate::tools::{ToolContext, ToolRegistry};
 pub struct Agent {
     reasoning: Reasoning,
     pub tools: Arc<ToolRegistry>,
-    skills: Vec<LoadedSkill>,
+    skills: Arc<Vec<LoadedSkill>>,
     max_turns: u32,
     tool_ctx: ToolContext,
 }
@@ -21,7 +22,7 @@ impl Agent {
     pub fn new(
         reasoning: Reasoning,
         tools: Arc<ToolRegistry>,
-        skills: Vec<LoadedSkill>,
+        skills: Arc<Vec<LoadedSkill>>,
         max_turns: u32,
     ) -> Self {
         Self {
@@ -54,6 +55,10 @@ impl Agent {
         // Score skills against input
         let active_skills = skills::prefilter_skills(input, &self.skills, 3, 4000);
 
+        // Build skill catalog (all skills, marking active ones)
+        let active_names: HashSet<&str> = active_skills.iter().map(|s| s.name()).collect();
+        let skill_catalog = build_skill_catalog(&self.skills, &active_names);
+
         // Attenuate tools based on skill trust
         let all_tool_defs = self.tools.tool_definitions().await;
         let tool_defs = skills::attenuate_tools(&all_tool_defs, &active_skills);
@@ -63,6 +68,9 @@ impl Agent {
 
         let mut ctx = ReasoningContext::new();
         ctx.available_tools = tool_defs;
+        if !skill_catalog.is_empty() {
+            ctx.skill_catalog = Some(skill_catalog);
+        }
         if !skill_context.is_empty() {
             ctx.skill_context = Some(skill_context);
         }
@@ -79,6 +87,7 @@ impl Agent {
                 ctx.force_text = true;
             }
 
+            tracing::debug!(turn, max_turns = self.max_turns, force_text = ctx.force_text, "LLM call");
             let output = self.reasoning.respond_with_tools(ctx).await?;
 
             match output.result {
@@ -102,6 +111,7 @@ impl Agent {
                     // Execute each tool
                     for tc in &tool_calls {
                         eprintln!("[tool: {}]", tc.name);
+                        tracing::debug!(tool = %tc.name, args = %tc.arguments, "Tool call");
 
                         let result = self
                             .tools
@@ -109,8 +119,14 @@ impl Agent {
                             .await;
 
                         let (tool_output, is_error) = match result {
-                            Ok(output) => (output.content, false),
-                            Err(e) => (format!("Error: {}", e), true),
+                            Ok(output) => {
+                                tracing::debug!(tool = %tc.name, len = output.content.len(), "Tool ok");
+                                (output.content, false)
+                            }
+                            Err(ref e) => {
+                                tracing::debug!(tool = %tc.name, error = %e, "Tool error");
+                                (format!("Error: {}", e), true)
+                            }
                         };
 
                         // Sanitize and wrap
@@ -133,6 +149,7 @@ impl Agent {
                     }
                 }
                 RespondResult::Text(text) => {
+                    tracing::debug!(turn, len = text.len(), "Final text response");
                     ctx.messages.push(ChatMessage::assistant(&text));
                     return Ok(text);
                 }
@@ -141,6 +158,29 @@ impl Agent {
 
         Ok(String::new())
     }
+}
+
+/// Build a compact skill catalog for the system prompt.
+fn build_skill_catalog(skills: &[LoadedSkill], active_names: &HashSet<&str>) -> String {
+    if skills.is_empty() {
+        return String::new();
+    }
+
+    let mut lines = Vec::new();
+    lines.push("| Skill | Description | Status |".to_string());
+    lines.push("|-------|-------------|--------|".to_string());
+
+    for skill in skills {
+        let entry = skill.catalog_entry();
+        let status = if active_names.contains(entry.name.as_str()) {
+            "active"
+        } else {
+            "available"
+        };
+        lines.push(format!("| {} | {} | {} |", entry.name, entry.description, status));
+    }
+
+    lines.join("\n")
 }
 
 /// Build XML skill context block for active skills.

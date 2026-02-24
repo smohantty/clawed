@@ -4,7 +4,9 @@ use crate::llm::ToolDefinition;
 use crate::skills::{LoadedSkill, SkillTrust};
 
 /// Tools that are always safe -- read-only, no side effects.
-const READ_ONLY_TOOLS: &[&str] = &["time", "echo", "json", "read_file", "list_dir"];
+const READ_ONLY_TOOLS: &[&str] = &[
+    "time", "echo", "json", "read_file", "list_dir", "skill_list", "load_skill",
+];
 
 /// Filter tool definitions based on the trust level of active skills.
 pub fn attenuate_tools(

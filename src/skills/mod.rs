@@ -96,6 +96,14 @@ fn default_version() -> String {
     "0.0.0".to_string()
 }
 
+/// Lightweight skill metadata for the system prompt catalog.
+#[derive(Debug, Clone, Serialize)]
+pub struct SkillCatalogEntry {
+    pub name: String,
+    pub description: String,
+    pub trust: SkillTrust,
+}
+
 /// A fully loaded skill ready for activation.
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
@@ -113,6 +121,15 @@ pub struct LoadedSkill {
 impl LoadedSkill {
     pub fn name(&self) -> &str {
         &self.manifest.name
+    }
+
+    /// Return a lightweight catalog entry for the system prompt.
+    pub fn catalog_entry(&self) -> SkillCatalogEntry {
+        SkillCatalogEntry {
+            name: self.manifest.name.clone(),
+            description: self.manifest.description.clone(),
+            trust: self.trust,
+        }
     }
 
     pub fn compile_patterns(patterns: &[String]) -> Vec<Regex> {

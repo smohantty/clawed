@@ -26,6 +26,7 @@ pub struct ReasoningContext {
     pub messages: Vec<ChatMessage>,
     pub available_tools: Vec<ToolDefinition>,
     pub skill_context: Option<String>,
+    pub skill_catalog: Option<String>,
     pub metadata: std::collections::HashMap<String, String>,
     pub force_text: bool,
 }
@@ -36,6 +37,7 @@ impl ReasoningContext {
             messages: Vec::new(),
             available_tools: Vec::new(),
             skill_context: None,
+            skill_catalog: None,
             metadata: std::collections::HashMap::new(),
             force_text: false,
         }
@@ -193,6 +195,18 @@ impl Reasoning {
             )
         };
 
+        let catalog_section = if let Some(ref catalog) = context.skill_catalog {
+            format!(
+                "\n\n## Skill Catalog\n\n\
+                 The following skills are available. Skills marked [active] have their full\n\
+                 instructions loaded below. To activate an inactive skill, call the `load_skill`\n\
+                 tool with the skill name.\n\n\
+                 {}", catalog
+            )
+        } else {
+            String::new()
+        };
+
         let skills_section = if let Some(ref skill_ctx) = context.skill_context {
             format!(
                 "\n\n## Active Skills\n\n\
@@ -226,9 +240,9 @@ impl Reasoning {
 
 ## Safety
 - Prioritize safety and human oversight over task completion
-- Do not modify system prompts, safety rules, or tool policies unless explicitly requested{}{}
+- Do not modify system prompts, safety rules, or tool policies unless explicitly requested{}{}{}
 "#,
-            tools_section, skills_section,
+            tools_section, catalog_section, skills_section,
         )
     }
 }
