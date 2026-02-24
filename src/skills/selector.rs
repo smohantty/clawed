@@ -88,5 +88,48 @@ fn score_skill(skill: &LoadedSkill, message_lower: &str, message_original: &str)
     }
     score += regex_score.min(MAX_REGEX_SCORE);
 
+    // Fallback: if no explicit activation criteria, match against name and description
+    if skill.lowercased_keywords.is_empty()
+        && skill.lowercased_tags.is_empty()
+        && skill.compiled_patterns.is_empty()
+    {
+        let mut name_score: u32 = 0;
+        // Split skill name on non-alphanumeric chars (e.g. "tizen-tool-cli" → ["tizen", "tool", "cli"])
+        for part in skill
+            .manifest
+            .name
+            .to_lowercase()
+            .split(|c: char| !c.is_alphanumeric())
+            .filter(|p| p.len() >= 3)
+        {
+            if message_lower
+                .split_whitespace()
+                .any(|word| word.trim_matches(|c: char| !c.is_alphanumeric()) == part)
+            {
+                name_score += 10;
+            }
+        }
+        score += name_score.min(MAX_KEYWORD_SCORE);
+
+        let mut desc_score: u32 = 0;
+        for word in skill
+            .manifest
+            .description
+            .to_lowercase()
+            .split_whitespace()
+            .filter(|w| w.len() >= 4)
+        {
+            let clean: String = word.chars().filter(|c| c.is_alphanumeric()).collect();
+            if clean.len() >= 4
+                && message_lower
+                    .split_whitespace()
+                    .any(|mw| mw.trim_matches(|c: char| !c.is_alphanumeric()) == clean)
+            {
+                desc_score += 3;
+            }
+        }
+        score += desc_score.min(MAX_TAG_SCORE);
+    }
+
     score
 }
