@@ -9,7 +9,7 @@ pub use attenuation::attenuate_tools;
 pub use registry::SkillRegistry;
 pub use selector::prefilter_skills;
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use regex::{Regex, RegexBuilder};
 use serde::{Deserialize, Serialize};
@@ -121,6 +121,13 @@ pub struct LoadedSkill {
 impl LoadedSkill {
     pub fn name(&self) -> &str {
         &self.manifest.name
+    }
+
+    /// Return the skill's source directory path.
+    pub fn source_dir(&self) -> &Path {
+        match &self.source {
+            SkillSource::User(p) => p,
+        }
     }
 
     /// Return a lightweight catalog entry for the system prompt.

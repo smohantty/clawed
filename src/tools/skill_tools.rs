@@ -148,14 +148,15 @@ impl Tool for LoadSkillTool {
 
         let trust = skill.trust.to_string();
         let escaped_name = escape_xml_attr(name);
+        let dir = escape_xml_attr(&skill.source_dir().display().to_string());
 
         match resource_path {
             None => {
                 // Return the full SKILL.md body
                 let content = escape_skill_content(&skill.prompt_content);
                 let output = format!(
-                    "<skill name=\"{}\" trust=\"{}\">\n{}\n</skill>",
-                    escaped_name, trust, content
+                    "<skill name=\"{}\" trust=\"{}\" dir=\"{}\">\n{}\n</skill>",
+                    escaped_name, trust, dir, content
                 );
                 Ok(ToolOutput::text(output))
             }
