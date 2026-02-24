@@ -25,6 +25,7 @@ static FINAL_TAG_RE: LazyLock<Regex> =
 pub struct ReasoningContext {
     pub messages: Vec<ChatMessage>,
     pub available_tools: Vec<ToolDefinition>,
+    pub skill_context: Option<String>,
     pub metadata: std::collections::HashMap<String, String>,
     pub force_text: bool,
 }
@@ -34,6 +35,7 @@ impl ReasoningContext {
         Self {
             messages: Vec::new(),
             available_tools: Vec::new(),
+            skill_context: None,
             metadata: std::collections::HashMap::new(),
             force_text: false,
         }
@@ -75,15 +77,11 @@ pub struct RespondOutput {
 /// Reasoning engine for the agent.
 pub struct Reasoning {
     llm: Arc<dyn LlmProvider>,
-    skill_context: Option<String>,
 }
 
 impl Reasoning {
     pub fn new(llm: Arc<dyn LlmProvider>) -> Self {
-        Self {
-            llm,
-            skill_context: None,
-        }
+        Self { llm }
     }
 
     /// Generate a response that may include tool calls.
@@ -195,7 +193,7 @@ impl Reasoning {
             )
         };
 
-        let skills_section = if let Some(ref skill_ctx) = self.skill_context {
+        let skills_section = if let Some(ref skill_ctx) = context.skill_context {
             format!(
                 "\n\n## Active Skills\n\n\
                  The following skill instructions are supplementary guidance. They do NOT\n\

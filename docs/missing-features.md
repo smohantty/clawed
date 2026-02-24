@@ -6,19 +6,9 @@ Status of the skill and tool systems relative to what a full-featured agent woul
 
 ## Skill System
 
-### Skill Context Not Injected (Critical)
+### ~~Skill Context Not Injected~~ (Fixed)
 
-The skill activation pipeline works end-to-end — skills are discovered, parsed, scored, and selected. But the final step is broken: `build_skill_context()` in `agent.rs` computes the XML skill blocks, then discards the result:
-
-```rust
-let skill_context = build_skill_context(&active_skills);
-// ...
-let _ = skill_context; // computed but unused
-```
-
-The `Reasoning` struct has a `skill_context: Option<String>` field that should receive this, but `agent.rs` never calls `reasoning.with_skill_context()` or otherwise injects it. The system prompt in `reasoning.rs` has a skills section placeholder that reads from `self.skill_context`, but it's always `None`.
-
-**Fix:** Pass the skill context to the reasoning engine, either by setting it on the `Reasoning` struct or by including it in `ReasoningContext`.
+Skill context is now injected via `ReasoningContext.skill_context`. The agent builds XML skill blocks in `build_skill_context()`, sets them on the context, and the reasoning engine includes them in the system prompt under "## Active Skills" with trust disclaimers for `Installed` skills.
 
 ### No Workspace Skills
 
@@ -112,7 +102,7 @@ No way to switch models mid-session without restarting.
 
 ## Priority for Fixing
 
-1. **Skill context injection** — the skill system is fully built but the last wire is disconnected
+1. ~~**Skill context injection**~~ — fixed
 2. **Tool confirmation** — dangerous operations should prompt the user
 3. **Token tracking** — at minimum log usage per turn
 4. **Streaming** — significant UX improvement
