@@ -48,15 +48,10 @@ static DANGEROUS_PATTERNS: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
     ]
 });
 
-/// Environment variables safe to forward to child processes.
-const SAFE_ENV_VARS: &[&str] = &[
-    "PATH", "HOME", "USER", "LOGNAME", "SHELL", "TERM", "COLORTERM",
-    "LANG", "LC_ALL", "LC_CTYPE", "LC_MESSAGES",
-    "PWD", "TMPDIR", "TMP", "TEMP",
-    "XDG_RUNTIME_DIR", "XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME",
-    "CARGO_HOME", "RUSTUP_HOME",
-    "NODE_PATH", "NPM_CONFIG_PREFIX",
-    "EDITOR", "VISUAL",
+/// Environment variables to strip from child processes (secrets/keys).
+const SENSITIVE_ENV_PATTERNS: &[&str] = &[
+    "API_KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL",
+    "ANTHROPIC_", "OPENAI_", "AWS_SECRET",
 ];
 
 /// Detect injection patterns in commands.
@@ -174,16 +169,16 @@ impl Tool for ShellTool {
             .map(Duration::from_secs)
             .unwrap_or(DEFAULT_TIMEOUT);
 
-        // Build command with scrubbed environment
+        // Build command — inherit full environment, strip only secrets
         let mut cmd = Command::new("sh");
         cmd.arg("-c").arg(command);
         cmd.current_dir(&working_dir);
-        cmd.env_clear();
 
-        // Forward only safe environment variables
-        for var in SAFE_ENV_VARS {
-            if let Ok(val) = std::env::var(var) {
-                cmd.env(var, val);
+        // Remove sensitive environment variables
+        for (key, _) in std::env::vars() {
+            let upper = key.to_uppercase();
+            if SENSITIVE_ENV_PATTERNS.iter().any(|p| upper.contains(p)) {
+                cmd.env_remove(&key);
             }
         }
 
