@@ -1,5 +1,6 @@
 //! Tool trait, registry, and types.
 
+pub mod builtin;
 pub mod file;
 pub mod shell;
 
@@ -64,6 +65,16 @@ pub fn require_str<'a>(params: &'a serde_json::Value, name: &str) -> Result<&'a 
         .ok_or_else(|| ToolError::InvalidParameters(format!("missing '{}' parameter", name)))
 }
 
+/// Extract a required parameter of any type from a JSON object.
+pub fn require_param<'a>(
+    params: &'a serde_json::Value,
+    name: &str,
+) -> Result<&'a serde_json::Value, ToolError> {
+    params
+        .get(name)
+        .ok_or_else(|| ToolError::InvalidParameters(format!("missing '{}' parameter", name)))
+}
+
 /// Registry of available tools.
 pub struct ToolRegistry {
     tools: RwLock<HashMap<String, Arc<dyn Tool>>>,
@@ -112,14 +123,17 @@ impl ToolRegistry {
         tool.execute(arguments.clone(), ctx).await
     }
 
-    /// Register all dev tools (shell, file operations).
+    /// Register all dev tools (shell, file operations, builtins).
     pub async fn register_dev_tools(&self) {
         self.register(Arc::new(shell::ShellTool::new())).await;
         self.register(Arc::new(file::ReadFileTool::new())).await;
         self.register(Arc::new(file::WriteFileTool::new())).await;
         self.register(Arc::new(file::ListDirTool::new())).await;
         self.register(Arc::new(file::ApplyPatchTool::new())).await;
-        tracing::info!("Registered 5 development tools");
+        self.register(Arc::new(builtin::EchoTool::new())).await;
+        self.register(Arc::new(builtin::TimeTool::new())).await;
+        self.register(Arc::new(builtin::JsonTool::new())).await;
+        tracing::info!("Registered 8 development tools");
     }
 }
 

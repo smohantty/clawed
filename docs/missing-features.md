@@ -50,9 +50,9 @@ The agent can call tools as fast as the loop runs. There's no rate limiting per 
 
 No integration with MCP servers. The tool set is fixed at compile time (the 5 dev tools). MCP would allow dynamic tool registration from external services.
 
-### Read-Only Tool Set Too Small
+### ~~Read-Only Tool Set Too Small~~ (Fixed)
 
-The attenuation system's `READ_ONLY_TOOLS` list is: `time`, `echo`, `json`, `read_file`, `list_dir`. The `time`, `echo`, and `json` tools don't actually exist in clawed — only `read_file` and `list_dir` are real. If an `Installed` skill activates, the agent would have only 2 working tools.
+The `time`, `echo`, and `json` builtin tools are now implemented in `src/tools/builtin.rs` and registered alongside the dev tools. All 5 tools in `READ_ONLY_TOOLS` (`time`, `echo`, `json`, `read_file`, `list_dir`) are now functional when an `Installed` skill activates.
 
 ### No Tool Timeout Configuration
 
