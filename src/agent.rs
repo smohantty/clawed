@@ -97,6 +97,15 @@ impl Agent {
             .iter()
             .map(|t| t.name.as_str())
             .collect();
+        tracing::info!(
+            target: "clawed::skills",
+            input_preview = %crate::logging::preview_text(input, 240),
+            active_skill_count = active_skill_names.len(),
+            active_skills = ?active_skill_names,
+            available_tool_count = available_tool_names.len(),
+            available_tools = ?available_tool_names,
+            "Skill selection and tool attenuation for task"
+        );
         tracing::event!(
             target: "clawed::audit",
             tracing::Level::DEBUG,
