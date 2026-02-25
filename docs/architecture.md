@@ -294,7 +294,8 @@ Detected patterns are logged as warnings and the output is marked `sanitized="tr
 | `CLAUDE_CLI_TIMEOUT_SECS` | `300` | Timeout per `claude -p` call |
 | `CLAWED_LOG_DIR` | `~/.clawed/logs` | Directory for persistent interaction logs |
 | `CLAWED_LOG_FILE` | `llm-interactions.log` | Base log filename (daily rotated) |
-| `CLAWED_LOG_FILE_FILTER` | `clawed=trace,rig=trace,warn` | Verbosity filter for file logs |
+| `CLAWED_LOG_FILE_FILTER` | `clawed=trace,warn` | Verbosity filter for file logs |
+| `CLAWED_AUDIT_FULL_PAYLOADS` | `false` | If `true`, log full request/response payload bodies instead of previews |
 | `CLAWED_SKILLS_DIR` | `~/.clawed/skills` | Skills directory |
 | `CLAWED_MAX_TURNS` | `50` | Max agent loop iterations |
 
@@ -304,11 +305,13 @@ CLI flags (`--model`, `--max-turns`, `--no-skills`) override env vars. The `--mo
 
 At startup, clawed initializes two tracing outputs:
 - **Console layer**: human-readable logs filtered by `RUST_LOG`
-- **File layer**: persistent logs filtered by `CLAWED_LOG_FILE_FILTER` (default `clawed=trace,rig=trace,warn`)
+- **File layer**: persistent logs filtered by `CLAWED_LOG_FILE_FILTER` (default `clawed=trace,warn`)
 
 File logs include the `clawed::audit` target with detailed turn-by-turn interaction traces:
 - Turn start/end metadata (`turn`, `force_text`, message count)
-- Full LLM request payloads (messages, tool definitions, metadata)
+- LLM request payload previews (messages, tool definitions, metadata) plus sizes
 - LLM responses (content/tool calls/tokens)
-- Tool execution input/output, including sanitized/wrapped tool payloads
+- Tool execution input and output previews, including sanitized/wrapped payload previews
 - `skill_list` and `load_skill` execution details
+
+Set `CLAWED_AUDIT_FULL_PAYLOADS=true` when full raw payload bodies are required for deep debugging.

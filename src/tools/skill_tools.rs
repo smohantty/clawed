@@ -93,7 +93,7 @@ impl Tool for SkillListTool {
             tracing::Level::DEBUG,
             tool = "skill_list",
             output_len = json.len(),
-            output = %json,
+            output_preview = %crate::logging::preview_text(&json, 1200),
             "Completed skill_list tool"
         );
         Ok(ToolOutput::text(json))
@@ -186,7 +186,7 @@ impl Tool for LoadSkillTool {
                     skill_name = %name,
                     mode = "full-skill",
                     output_len = output.len(),
-                    output = %output,
+                    output_preview = %crate::logging::preview_text(&output, 1200),
                     "Completed load_skill tool"
                 );
                 Ok(ToolOutput::text(output))
@@ -260,7 +260,7 @@ impl Tool for LoadSkillTool {
                     mode = "resource",
                     resource_path = %rel_path,
                     output_len = output.len(),
-                    output = %output,
+                    output_preview = %crate::logging::preview_text(&output, 1200),
                     "Completed load_skill resource read"
                 );
                 Ok(ToolOutput::text(output))

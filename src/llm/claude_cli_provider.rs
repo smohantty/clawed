@@ -66,7 +66,8 @@ impl ClaudeCliProvider {
         );
         tracing::debug!(
             command = %command_preview,
-            stdin_prompt = %prompt,
+            stdin_prompt_len = prompt.len(),
+            stdin_prompt_preview = %crate::logging::preview_text(&prompt, 1200),
             "Invoking Claude CLI command"
         );
 
@@ -129,8 +130,10 @@ impl ClaudeCliProvider {
             tracing::Level::DEBUG,
             provider = PROVIDER_NAME,
             exit_code = output.status.code().unwrap_or(-1),
-            stdout = %stdout,
-            stderr = %stderr,
+            stdout_len = stdout.len(),
+            stdout_preview = %crate::logging::preview_text(&stdout, 1200),
+            stderr_len = stderr.len(),
+            stderr_preview = %crate::logging::preview_text(&stderr, 1200),
             "Claude CLI process completed"
         );
 
@@ -164,7 +167,8 @@ impl ClaudeCliProvider {
             provider = PROVIDER_NAME,
             parsed_input_tokens = parsed.input_tokens,
             parsed_output_tokens = parsed.output_tokens,
-            parsed_content = %parsed.content,
+            parsed_content_len = parsed.content.len(),
+            parsed_content_preview = %crate::logging::preview_text(&parsed.content, 1200),
             "Parsed Claude CLI JSON response"
         );
         Ok(parsed)

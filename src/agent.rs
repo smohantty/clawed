@@ -149,7 +149,11 @@ impl Agent {
                         tracing::Level::DEBUG,
                         turn,
                         tool_call_count = tool_calls.len(),
-                        assistant_text = ?content,
+                        assistant_text_len = content.as_ref().map(|s| s.len()).unwrap_or(0),
+                        assistant_text_preview = %content
+                            .as_ref()
+                            .map(|s| crate::logging::preview_text(s, 800))
+                            .unwrap_or_else(|| "<none>".to_string()),
                         usage_input_tokens = usage.input_tokens,
                         usage_output_tokens = usage.output_tokens,
                         "LLM returned tool calls"
@@ -195,7 +199,7 @@ impl Agent {
                                     tool_call_id = %tc.id,
                                     tool = %tc.name,
                                     raw_output_len = output.content.len(),
-                                    raw_output = %output.content,
+                                    raw_output_preview = %crate::logging::preview_text(&output.content, 1200),
                                     "Tool execution succeeded"
                                 );
                                 (output.content, false)
@@ -236,9 +240,9 @@ impl Agent {
                             tool = %tc.name,
                             sanitized_was_modified = sanitized.was_modified,
                             sanitized_output_len = sanitized.content.len(),
-                            sanitized_output = %sanitized.content,
+                            sanitized_output_preview = %crate::logging::preview_text(&sanitized.content, 1200),
                             wrapped_content_len = content.len(),
-                            wrapped_content = %content,
+                            wrapped_content_preview = %crate::logging::preview_text(&content, 1200),
                             "Tool result appended to context"
                         );
 
@@ -254,7 +258,7 @@ impl Agent {
                         usage_input_tokens = usage.input_tokens,
                         usage_output_tokens = usage.output_tokens,
                         response_len = text.len(),
-                        response = %text,
+                        response_preview = %crate::logging::preview_text(&text, 1200),
                         "Final text response"
                     );
                     ctx.messages.push(ChatMessage::assistant(&text));

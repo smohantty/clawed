@@ -202,23 +202,25 @@ Only the API key for the selected API backend is required. The `--model` CLI fla
 | `CLAUDE_CLI_TIMEOUT_SECS` | `300` | Timeout for each `claude -p` call |
 | `CLAWED_LOG_DIR` | `~/.clawed/logs` | Directory for persistent interaction logs |
 | `CLAWED_LOG_FILE` | `llm-interactions.log` | Base log filename (daily rotated) |
-| `CLAWED_LOG_FILE_FILTER` | `clawed=trace,rig=trace,warn` | Verbosity filter for file logs |
+| `CLAWED_LOG_FILE_FILTER` | `clawed=trace,warn` | Verbosity filter for file logs |
+| `CLAWED_AUDIT_FULL_PAYLOADS` | `false` | If `true`, log full request/response payload bodies instead of previews |
 | `CLAWED_SKILLS_DIR` | `~/.clawed/skills` | Skills directory |
 | `CLAWED_MAX_TURNS` | `50` | Max agent loop iterations |
 
 ## Logging
 
 Clawed now writes extensive, turn-by-turn logs to file by default. This is designed for debugging agent behavior and includes:
-- LLM request payloads and metadata for each turn
-- LLM raw responses, cleaned responses, token usage
+- LLM request summaries/metadata for each turn
+- LLM response summaries, cleaned responses, token usage
 - Structured tool calls and recovered tool calls
-- Tool execution inputs and outputs (including wrapped/sanitized tool content)
+- Tool execution inputs and output previews (including wrapped/sanitized content previews)
 - `skill_list` and `load_skill` tool execution details
 
 Default log path pattern:
 - `~/.clawed/logs/llm-interactions.log.YYYY-MM-DD`
 
-Console logs still follow `RUST_LOG`. File logs use `CLAWED_LOG_FILE_FILTER` (default `clawed=trace,rig=trace,warn`).
+Console logs still follow `RUST_LOG`. File logs use `CLAWED_LOG_FILE_FILTER` (default `clawed=trace,warn`).
+Set `CLAWED_AUDIT_FULL_PAYLOADS=true` when you need full raw payload dumps.
 
 ## Safety
 

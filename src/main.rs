@@ -4,6 +4,7 @@ mod agent;
 mod config;
 mod error;
 mod llm;
+mod logging;
 mod repl;
 mod safety;
 mod skills;
@@ -43,7 +44,7 @@ struct Cli {
 
 fn init_logging() -> Option<tracing_appender::non_blocking::WorkerGuard> {
     const DEFAULT_CONSOLE_FILTER: &str = "clawed=info,warn";
-    const DEFAULT_FILE_FILTER: &str = "clawed=trace,rig=trace,warn";
+    const DEFAULT_FILE_FILTER: &str = "clawed=trace,warn";
 
     let console_filter = tracing_subscriber::EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new(DEFAULT_CONSOLE_FILTER));

@@ -107,18 +107,51 @@ impl Reasoning {
             .get("clawed.turn")
             .map(String::as_str)
             .unwrap_or("unknown");
-        tracing::event!(
-            target: "clawed::audit",
-            tracing::Level::DEBUG,
-            turn = %turn,
-            force_text = context.force_text,
-            request_message_count = messages.len(),
-            request_tool_count = effective_tools.len(),
-            request_messages = %as_pretty_json(&messages),
-            request_tools = %as_pretty_json(&effective_tools),
-            request_metadata = %as_pretty_json(&context.metadata),
-            "Prepared LLM request"
-        );
+
+        let request_metadata_json = as_pretty_json(&context.metadata);
+        if crate::logging::audit_full_payloads_enabled() {
+            let request_messages_json = as_pretty_json(&messages);
+            let request_tools_json = as_pretty_json(&effective_tools);
+            tracing::event!(
+                target: "clawed::audit",
+                tracing::Level::DEBUG,
+                turn = %turn,
+                force_text = context.force_text,
+                request_message_count = messages.len(),
+                request_tool_count = effective_tools.len(),
+                request_messages_len = request_messages_json.len(),
+                request_messages_preview = %request_messages_json,
+                request_tools_len = request_tools_json.len(),
+                request_tools_preview = %request_tools_json,
+                request_metadata_len = request_metadata_json.len(),
+                request_metadata_preview = %request_metadata_json,
+                "Prepared LLM request (full payload mode)"
+            );
+        } else {
+            let message_roles: Vec<&str> = messages.iter().map(|m| role_name(m.role)).collect();
+            let latest_user_message = messages
+                .iter()
+                .rev()
+                .find(|m| m.role == crate::llm::provider::Role::User)
+                .map(|m| m.content.as_str())
+                .unwrap_or("");
+            let tool_names: Vec<&str> = effective_tools.iter().map(|t| t.name.as_str()).collect();
+
+            tracing::event!(
+                target: "clawed::audit",
+                tracing::Level::DEBUG,
+                turn = %turn,
+                force_text = context.force_text,
+                request_message_count = messages.len(),
+                request_message_roles = ?message_roles,
+                latest_user_message_preview = %crate::logging::preview_text(latest_user_message, 600),
+                request_tool_count = effective_tools.len(),
+                request_tool_names = ?tool_names,
+                request_metadata_len = request_metadata_json.len(),
+                request_metadata_preview = %crate::logging::preview_text(&request_metadata_json, 600),
+                "Prepared LLM request"
+            );
+        }
 
         if !effective_tools.is_empty() {
             let mut request = ToolCompletionRequest::new(messages, effective_tools)
@@ -128,14 +161,21 @@ impl Reasoning {
             request.metadata = context.metadata.clone();
 
             let response = self.llm.complete_with_tools(request).await?;
+            let response_tool_calls_json = as_pretty_json(&response.tool_calls);
             tracing::event!(
                 target: "clawed::audit",
                 tracing::Level::DEBUG,
                 turn = %turn,
                 input_tokens = response.input_tokens,
                 output_tokens = response.output_tokens,
-                response_content = ?response.content,
-                response_tool_calls = %as_pretty_json(&response.tool_calls),
+                response_content_len = response.content.as_ref().map(|c| c.len()).unwrap_or(0),
+                response_content_preview = %response
+                    .content
+                    .as_ref()
+                    .map(|c| crate::logging::preview_text(c, 1200))
+                    .unwrap_or_else(|| "<none>".to_string()),
+                response_tool_calls_len = response_tool_calls_json.len(),
+                response_tool_calls_preview = %crate::logging::preview_text(&response_tool_calls_json, 1200),
                 "Received LLM tool-capable response"
             );
             let usage = TokenUsage {
@@ -173,9 +213,11 @@ impl Reasoning {
                     tracing::Level::DEBUG,
                     turn = %turn,
                     recovered_tool_call_count = recovered.len(),
-                    recovered_tool_calls = %as_pretty_json(&recovered),
-                    recovered_from_content = %content,
-                    cleaned_content = %cleaned,
+                    recovered_tool_calls_preview = %crate::logging::preview_text(&as_pretty_json(&recovered), 1200),
+                    recovered_from_content_len = content.len(),
+                    recovered_from_content_preview = %crate::logging::preview_text(&content, 1200),
+                    cleaned_content_len = cleaned.len(),
+                    cleaned_content_preview = %crate::logging::preview_text(&cleaned, 1200),
                     "Recovered tool calls from textual response"
                 );
                 return Ok(RespondOutput {
@@ -201,8 +243,10 @@ impl Reasoning {
                 target: "clawed::audit",
                 tracing::Level::DEBUG,
                 turn = %turn,
-                raw_content = %content,
-                final_text = %final_text,
+                raw_content_len = content.len(),
+                raw_content_preview = %crate::logging::preview_text(&content, 1200),
+                final_text_len = final_text.len(),
+                final_text_preview = %crate::logging::preview_text(&final_text, 1200),
                 "No tool calls returned; using text response"
             );
             Ok(RespondOutput {
@@ -222,7 +266,8 @@ impl Reasoning {
                 turn = %turn,
                 input_tokens = response.input_tokens,
                 output_tokens = response.output_tokens,
-                raw_content = %response.content,
+                raw_content_len = response.content.len(),
+                raw_content_preview = %crate::logging::preview_text(&response.content, 1200),
                 "Received LLM text-only response"
             );
             let usage = TokenUsage {
@@ -239,7 +284,8 @@ impl Reasoning {
                 target: "clawed::audit",
                 tracing::Level::DEBUG,
                 turn = %turn,
-                cleaned_text = %final_text,
+                cleaned_text_len = final_text.len(),
+                cleaned_text_preview = %crate::logging::preview_text(&final_text, 1200),
                 "Produced final cleaned text response"
             );
             Ok(RespondOutput {
@@ -320,6 +366,15 @@ impl Reasoning {
 fn as_pretty_json<T: serde::Serialize>(value: &T) -> String {
     serde_json::to_string_pretty(value)
         .unwrap_or_else(|_| "<json-serialization-failed>".to_string())
+}
+
+fn role_name(role: crate::llm::provider::Role) -> &'static str {
+    match role {
+        crate::llm::provider::Role::System => "system",
+        crate::llm::provider::Role::User => "user",
+        crate::llm::provider::Role::Assistant => "assistant",
+        crate::llm::provider::Role::Tool => "tool",
+    }
 }
 
 /// Recover tool calls from XML tags in content text.
