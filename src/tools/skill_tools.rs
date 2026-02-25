@@ -61,6 +61,14 @@ impl Tool for SkillListTool {
             .get("verbose")
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
+        tracing::event!(
+            target: "clawed::audit",
+            tracing::Level::DEBUG,
+            tool = "skill_list",
+            verbose,
+            known_skill_count = self.skills.len(),
+            "Executing skill_list tool"
+        );
 
         let entries: Vec<serde_json::Value> = self
             .skills
@@ -79,8 +87,15 @@ impl Tool for SkillListTool {
             })
             .collect();
 
-        let json = serde_json::to_string_pretty(&entries)
-            .unwrap_or_else(|_| "[]".to_string());
+        let json = serde_json::to_string_pretty(&entries).unwrap_or_else(|_| "[]".to_string());
+        tracing::event!(
+            target: "clawed::audit",
+            tracing::Level::DEBUG,
+            tool = "skill_list",
+            output_len = json.len(),
+            output = %json,
+            "Completed skill_list tool"
+        );
         Ok(ToolOutput::text(json))
     }
 }
@@ -136,15 +151,21 @@ impl Tool for LoadSkillTool {
     ) -> Result<ToolOutput, ToolError> {
         let name = require_str(&params, "name")?;
         let resource_path = params.get("path").and_then(|v| v.as_str());
+        tracing::event!(
+            target: "clawed::audit",
+            tracing::Level::DEBUG,
+            tool = "load_skill",
+            skill_name = %name,
+            resource_path = ?resource_path,
+            "Executing load_skill tool"
+        );
 
         // Find the skill by name
         let skill = self
             .skills
             .iter()
             .find(|s| s.manifest.name == name)
-            .ok_or_else(|| {
-                ToolError::InvalidParameters(format!("skill '{}' not found", name))
-            })?;
+            .ok_or_else(|| ToolError::InvalidParameters(format!("skill '{}' not found", name)))?;
 
         let trust = skill.trust.to_string();
         let escaped_name = escape_xml_attr(name);
@@ -157,6 +178,16 @@ impl Tool for LoadSkillTool {
                 let output = format!(
                     "<skill name=\"{}\" trust=\"{}\" dir=\"{}\">\n{}\n</skill>",
                     escaped_name, trust, dir, content
+                );
+                tracing::event!(
+                    target: "clawed::audit",
+                    tracing::Level::DEBUG,
+                    tool = "load_skill",
+                    skill_name = %name,
+                    mode = "full-skill",
+                    output_len = output.len(),
+                    output = %output,
+                    "Completed load_skill tool"
                 );
                 Ok(ToolOutput::text(output))
             }
@@ -172,20 +203,15 @@ impl Tool for LoadSkillTool {
                 let full_path = skill_dir.join(rel_path);
 
                 // Verify the resolved path is under the skill directory
-                let canonical_dir = tokio::fs::canonicalize(&skill_dir)
-                    .await
-                    .map_err(|e| {
-                        ToolError::ExecutionFailed(format!(
-                            "cannot resolve skill directory: {}", e
-                        ))
-                    })?;
-                let canonical_file = tokio::fs::canonicalize(&full_path)
-                    .await
-                    .map_err(|e| {
-                        ToolError::ExecutionFailed(format!(
-                            "cannot resolve resource path '{}': {}", rel_path, e
-                        ))
-                    })?;
+                let canonical_dir = tokio::fs::canonicalize(&skill_dir).await.map_err(|e| {
+                    ToolError::ExecutionFailed(format!("cannot resolve skill directory: {}", e))
+                })?;
+                let canonical_file = tokio::fs::canonicalize(&full_path).await.map_err(|e| {
+                    ToolError::ExecutionFailed(format!(
+                        "cannot resolve resource path '{}': {}",
+                        rel_path, e
+                    ))
+                })?;
 
                 if !canonical_file.starts_with(&canonical_dir) {
                     return Err(ToolError::InvalidParameters(
@@ -195,13 +221,12 @@ impl Tool for LoadSkillTool {
                 }
 
                 // Check file size
-                let metadata = tokio::fs::metadata(&canonical_file)
-                    .await
-                    .map_err(|e| {
-                        ToolError::ExecutionFailed(format!(
-                            "cannot read resource '{}': {}", rel_path, e
-                        ))
-                    })?;
+                let metadata = tokio::fs::metadata(&canonical_file).await.map_err(|e| {
+                    ToolError::ExecutionFailed(format!(
+                        "cannot read resource '{}': {}",
+                        rel_path, e
+                    ))
+                })?;
 
                 if metadata.len() > MAX_RESOURCE_SIZE {
                     return Err(ToolError::ExecutionFailed(format!(
@@ -215,7 +240,8 @@ impl Tool for LoadSkillTool {
                     .await
                     .map_err(|e| {
                         ToolError::ExecutionFailed(format!(
-                            "failed to read resource '{}': {}", rel_path, e
+                            "failed to read resource '{}': {}",
+                            rel_path, e
                         ))
                     })?;
 
@@ -225,6 +251,17 @@ impl Tool for LoadSkillTool {
                     escape_xml_attr(rel_path),
                     trust,
                     content
+                );
+                tracing::event!(
+                    target: "clawed::audit",
+                    tracing::Level::DEBUG,
+                    tool = "load_skill",
+                    skill_name = %name,
+                    mode = "resource",
+                    resource_path = %rel_path,
+                    output_len = output.len(),
+                    output = %output,
+                    "Completed load_skill resource read"
                 );
                 Ok(ToolOutput::text(output))
             }

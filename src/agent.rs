@@ -36,6 +36,13 @@ impl Agent {
 
     /// Run a single task to completion.
     pub async fn run_task(&self, input: &str) -> Result<String, LlmError> {
+        tracing::event!(
+            target: "clawed::audit",
+            tracing::Level::INFO,
+            mode = "single-shot",
+            input = %input,
+            "Starting task"
+        );
         let mut ctx = self.build_context(input).await;
         self.run_loop(&mut ctx).await
     }
@@ -46,6 +53,14 @@ impl Agent {
         ctx: &mut ReasoningContext,
         input: &str,
     ) -> Result<String, LlmError> {
+        tracing::event!(
+            target: "clawed::audit",
+            tracing::Level::INFO,
+            mode = "conversation",
+            new_user_message = %input,
+            prior_message_count = ctx.messages.len(),
+            "Continuing conversation"
+        );
         ctx.messages.push(ChatMessage::user(input));
         self.run_loop(ctx).await
     }
@@ -76,6 +91,23 @@ impl Agent {
         }
         ctx.messages.push(ChatMessage::user(input));
 
+        let active_skill_names: Vec<&str> = active_skills.iter().map(|s| s.name()).collect();
+        let available_tool_names: Vec<&str> = ctx
+            .available_tools
+            .iter()
+            .map(|t| t.name.as_str())
+            .collect();
+        tracing::event!(
+            target: "clawed::audit",
+            tracing::Level::DEBUG,
+            input = %input,
+            active_skill_count = active_skill_names.len(),
+            active_skills = ?active_skill_names,
+            available_tool_count = available_tool_names.len(),
+            available_tools = ?available_tool_names,
+            "Built initial reasoning context"
+        );
+
         ctx
     }
 
@@ -87,14 +119,42 @@ impl Agent {
                 ctx.force_text = true;
             }
 
-            tracing::debug!(turn, max_turns = self.max_turns, force_text = ctx.force_text, "LLM call");
+            ctx.metadata
+                .insert("clawed.turn".to_string(), turn.to_string());
+            ctx.metadata
+                .insert("clawed.max_turns".to_string(), self.max_turns.to_string());
+            ctx.metadata
+                .insert("clawed.force_text".to_string(), ctx.force_text.to_string());
+
+            tracing::event!(
+                target: "clawed::audit",
+                tracing::Level::DEBUG,
+                turn,
+                max_turns = self.max_turns,
+                force_text = ctx.force_text,
+                message_count = ctx.messages.len(),
+                metadata = ?ctx.metadata,
+                "Turn start before LLM call"
+            );
             let output = self.reasoning.respond_with_tools(ctx).await?;
+            let usage = output.usage;
 
             match output.result {
                 RespondResult::ToolCalls {
                     tool_calls,
                     content,
                 } => {
+                    tracing::event!(
+                        target: "clawed::audit",
+                        tracing::Level::DEBUG,
+                        turn,
+                        tool_call_count = tool_calls.len(),
+                        assistant_text = ?content,
+                        usage_input_tokens = usage.input_tokens,
+                        usage_output_tokens = usage.output_tokens,
+                        "LLM returned tool calls"
+                    );
+
                     // Print any text content from the assistant
                     if let Some(ref text) = content {
                         if !text.is_empty() {
@@ -111,7 +171,15 @@ impl Agent {
                     // Execute each tool
                     for tc in &tool_calls {
                         eprintln!("[tool: {}]", tc.name);
-                        tracing::debug!(tool = %tc.name, args = %tc.arguments, "Tool call");
+                        tracing::event!(
+                            target: "clawed::audit",
+                            tracing::Level::DEBUG,
+                            turn,
+                            tool_call_id = %tc.id,
+                            tool = %tc.name,
+                            args = %tc.arguments,
+                            "Executing tool call"
+                        );
 
                         let result = self
                             .tools
@@ -120,18 +188,34 @@ impl Agent {
 
                         let (tool_output, is_error) = match result {
                             Ok(output) => {
-                                tracing::debug!(tool = %tc.name, len = output.content.len(), "Tool ok");
+                                tracing::event!(
+                                    target: "clawed::audit",
+                                    tracing::Level::DEBUG,
+                                    turn,
+                                    tool_call_id = %tc.id,
+                                    tool = %tc.name,
+                                    raw_output_len = output.content.len(),
+                                    raw_output = %output.content,
+                                    "Tool execution succeeded"
+                                );
                                 (output.content, false)
                             }
                             Err(ref e) => {
-                                tracing::debug!(tool = %tc.name, error = %e, "Tool error");
+                                tracing::event!(
+                                    target: "clawed::audit",
+                                    tracing::Level::WARN,
+                                    turn,
+                                    tool_call_id = %tc.id,
+                                    tool = %tc.name,
+                                    error = %e,
+                                    "Tool execution failed"
+                                );
                                 (format!("Error: {}", e), true)
                             }
                         };
 
                         // Sanitize and wrap
-                        let sanitized =
-                            safety::sanitize_tool_output(&tc.name, &tool_output);
+                        let sanitized = safety::sanitize_tool_output(&tc.name, &tool_output);
                         let wrapped = safety::wrap_for_llm(
                             &tc.name,
                             &sanitized.content,
@@ -144,18 +228,47 @@ impl Agent {
                             wrapped
                         };
 
+                        tracing::event!(
+                            target: "clawed::audit",
+                            tracing::Level::DEBUG,
+                            turn,
+                            tool_call_id = %tc.id,
+                            tool = %tc.name,
+                            sanitized_was_modified = sanitized.was_modified,
+                            sanitized_output_len = sanitized.content.len(),
+                            sanitized_output = %sanitized.content,
+                            wrapped_content_len = content.len(),
+                            wrapped_content = %content,
+                            "Tool result appended to context"
+                        );
+
                         ctx.messages
                             .push(ChatMessage::tool_result(&tc.id, &tc.name, &content));
                     }
                 }
                 RespondResult::Text(text) => {
-                    tracing::debug!(turn, len = text.len(), "Final text response");
+                    tracing::event!(
+                        target: "clawed::audit",
+                        tracing::Level::INFO,
+                        turn,
+                        usage_input_tokens = usage.input_tokens,
+                        usage_output_tokens = usage.output_tokens,
+                        response_len = text.len(),
+                        response = %text,
+                        "Final text response"
+                    );
                     ctx.messages.push(ChatMessage::assistant(&text));
                     return Ok(text);
                 }
             }
         }
 
+        tracing::event!(
+            target: "clawed::audit",
+            tracing::Level::WARN,
+            max_turns = self.max_turns,
+            "Reached max turns without final text; returning empty response"
+        );
         Ok(String::new())
     }
 }
@@ -177,7 +290,10 @@ fn build_skill_catalog(skills: &[LoadedSkill], active_names: &HashSet<&str>) -> 
         } else {
             "available"
         };
-        lines.push(format!("| {} | {} | {} |", entry.name, entry.description, status));
+        lines.push(format!(
+            "| {} | {} | {} |",
+            entry.name, entry.description, status
+        ));
     }
 
     lines.join("\n")
@@ -209,4 +325,3 @@ fn build_skill_context(active_skills: &[&LoadedSkill]) -> String {
 
     blocks.join("\n\n")
 }
-

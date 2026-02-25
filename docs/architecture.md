@@ -292,7 +292,23 @@ Detected patterns are logged as warnings and the output is marked `sanitized="tr
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model |
 | `CLAUDE_CLI_MODEL` | `opus4.6` | Claude CLI model (when `CLAWED_BACKEND=claude_cli`) |
 | `CLAUDE_CLI_TIMEOUT_SECS` | `300` | Timeout per `claude -p` call |
+| `CLAWED_LOG_DIR` | `~/.clawed/logs` | Directory for persistent interaction logs |
+| `CLAWED_LOG_FILE` | `llm-interactions.log` | Base log filename (daily rotated) |
+| `CLAWED_LOG_FILE_FILTER` | `clawed=trace,rig=trace,warn` | Verbosity filter for file logs |
 | `CLAWED_SKILLS_DIR` | `~/.clawed/skills` | Skills directory |
 | `CLAWED_MAX_TURNS` | `50` | Max agent loop iterations |
 
 CLI flags (`--model`, `--max-turns`, `--no-skills`) override env vars. The `--model` flag overrides the active backend's model. The `.env` file is loaded from the current directory (and parent) via dotenvy.
+
+## Interaction Audit Logging
+
+At startup, clawed initializes two tracing outputs:
+- **Console layer**: human-readable logs filtered by `RUST_LOG`
+- **File layer**: persistent logs filtered by `CLAWED_LOG_FILE_FILTER` (default `clawed=trace,rig=trace,warn`)
+
+File logs include the `clawed::audit` target with detailed turn-by-turn interaction traces:
+- Turn start/end metadata (`turn`, `force_text`, message count)
+- Full LLM request payloads (messages, tool definitions, metadata)
+- LLM responses (content/tool calls/tokens)
+- Tool execution input/output, including sanitized/wrapped tool payloads
+- `skill_list` and `load_skill` execution details

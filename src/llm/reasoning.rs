@@ -102,6 +102,24 @@ impl Reasoning {
             context.available_tools.clone()
         };
 
+        let turn = context
+            .metadata
+            .get("clawed.turn")
+            .map(String::as_str)
+            .unwrap_or("unknown");
+        tracing::event!(
+            target: "clawed::audit",
+            tracing::Level::DEBUG,
+            turn = %turn,
+            force_text = context.force_text,
+            request_message_count = messages.len(),
+            request_tool_count = effective_tools.len(),
+            request_messages = %as_pretty_json(&messages),
+            request_tools = %as_pretty_json(&effective_tools),
+            request_metadata = %as_pretty_json(&context.metadata),
+            "Prepared LLM request"
+        );
+
         if !effective_tools.is_empty() {
             let mut request = ToolCompletionRequest::new(messages, effective_tools)
                 .with_max_tokens(4096)
@@ -110,12 +128,29 @@ impl Reasoning {
             request.metadata = context.metadata.clone();
 
             let response = self.llm.complete_with_tools(request).await?;
+            tracing::event!(
+                target: "clawed::audit",
+                tracing::Level::DEBUG,
+                turn = %turn,
+                input_tokens = response.input_tokens,
+                output_tokens = response.output_tokens,
+                response_content = ?response.content,
+                response_tool_calls = %as_pretty_json(&response.tool_calls),
+                "Received LLM tool-capable response"
+            );
             let usage = TokenUsage {
                 input_tokens: response.input_tokens,
                 output_tokens: response.output_tokens,
             };
 
             if !response.tool_calls.is_empty() {
+                tracing::event!(
+                    target: "clawed::audit",
+                    tracing::Level::DEBUG,
+                    turn = %turn,
+                    tool_call_count = response.tool_calls.len(),
+                    "Using structured tool calls from LLM response"
+                );
                 return Ok(RespondOutput {
                     result: RespondResult::ToolCalls {
                         tool_calls: response.tool_calls,
@@ -133,6 +168,16 @@ impl Reasoning {
             let recovered = recover_tool_calls_from_content(&content, &context.available_tools);
             if !recovered.is_empty() {
                 let cleaned = clean_response(&content);
+                tracing::event!(
+                    target: "clawed::audit",
+                    tracing::Level::DEBUG,
+                    turn = %turn,
+                    recovered_tool_call_count = recovered.len(),
+                    recovered_tool_calls = %as_pretty_json(&recovered),
+                    recovered_from_content = %content,
+                    cleaned_content = %cleaned,
+                    "Recovered tool calls from textual response"
+                );
                 return Ok(RespondOutput {
                     result: RespondResult::ToolCalls {
                         tool_calls: recovered,
@@ -152,6 +197,14 @@ impl Reasoning {
             } else {
                 cleaned
             };
+            tracing::event!(
+                target: "clawed::audit",
+                tracing::Level::DEBUG,
+                turn = %turn,
+                raw_content = %content,
+                final_text = %final_text,
+                "No tool calls returned; using text response"
+            );
             Ok(RespondOutput {
                 result: RespondResult::Text(final_text),
                 usage,
@@ -163,6 +216,15 @@ impl Reasoning {
             request.metadata = context.metadata.clone();
 
             let response = self.llm.complete(request).await?;
+            tracing::event!(
+                target: "clawed::audit",
+                tracing::Level::DEBUG,
+                turn = %turn,
+                input_tokens = response.input_tokens,
+                output_tokens = response.output_tokens,
+                raw_content = %response.content,
+                "Received LLM text-only response"
+            );
             let usage = TokenUsage {
                 input_tokens: response.input_tokens,
                 output_tokens: response.output_tokens,
@@ -173,6 +235,13 @@ impl Reasoning {
             } else {
                 cleaned
             };
+            tracing::event!(
+                target: "clawed::audit",
+                tracing::Level::DEBUG,
+                turn = %turn,
+                cleaned_text = %final_text,
+                "Produced final cleaned text response"
+            );
             Ok(RespondOutput {
                 result: RespondResult::Text(final_text),
                 usage,
@@ -201,7 +270,8 @@ impl Reasoning {
                  The following skills are available. Skills marked [active] have their full\n\
                  instructions loaded below. To activate an inactive skill, call the `load_skill`\n\
                  tool with the skill name.\n\n\
-                 {}", catalog
+                 {}",
+                catalog
             )
         } else {
             String::new()
@@ -245,6 +315,11 @@ impl Reasoning {
             tools_section, catalog_section, skills_section,
         )
     }
+}
+
+fn as_pretty_json<T: serde::Serialize>(value: &T) -> String {
+    serde_json::to_string_pretty(value)
+        .unwrap_or_else(|_| "<json-serialization-failed>".to_string())
 }
 
 /// Recover tool calls from XML tags in content text.

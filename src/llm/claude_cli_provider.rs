@@ -124,6 +124,15 @@ impl ClaudeCliProvider {
 
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        tracing::event!(
+            target: "clawed::audit",
+            tracing::Level::DEBUG,
+            provider = PROVIDER_NAME,
+            exit_code = output.status.code().unwrap_or(-1),
+            stdout = %stdout,
+            stderr = %stderr,
+            "Claude CLI process completed"
+        );
 
         if !output.status.success() {
             let code = output.status.code().unwrap_or(-1);
@@ -148,7 +157,17 @@ impl ClaudeCliProvider {
             });
         }
 
-        parse_json_response(&stdout)
+        let parsed = parse_json_response(&stdout)?;
+        tracing::event!(
+            target: "clawed::audit",
+            tracing::Level::DEBUG,
+            provider = PROVIDER_NAME,
+            parsed_input_tokens = parsed.input_tokens,
+            parsed_output_tokens = parsed.output_tokens,
+            parsed_content = %parsed.content,
+            "Parsed Claude CLI JSON response"
+        );
+        Ok(parsed)
     }
 }
 
