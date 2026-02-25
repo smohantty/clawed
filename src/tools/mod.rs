@@ -127,24 +127,69 @@ impl ToolRegistry {
 
     /// Register all dev tools (shell, file operations, builtins).
     pub async fn register_dev_tools(&self) {
-        self.register(Arc::new(shell::ShellTool::new())).await;
-        self.register(Arc::new(file::ReadFileTool::new())).await;
-        self.register(Arc::new(file::WriteFileTool::new())).await;
-        self.register(Arc::new(file::ListDirTool::new())).await;
-        self.register(Arc::new(file::ApplyPatchTool::new())).await;
-        self.register(Arc::new(builtin::EchoTool::new())).await;
-        self.register(Arc::new(builtin::TimeTool::new())).await;
-        self.register(Arc::new(builtin::JsonTool::new())).await;
-        tracing::info!("Registered 8 development tools");
+        let shell_tool = Arc::new(shell::ShellTool::new());
+        let read_file_tool = Arc::new(file::ReadFileTool::new());
+        let write_file_tool = Arc::new(file::WriteFileTool::new());
+        let list_dir_tool = Arc::new(file::ListDirTool::new());
+        let apply_patch_tool = Arc::new(file::ApplyPatchTool::new());
+        let echo_tool = Arc::new(builtin::EchoTool::new());
+        let time_tool = Arc::new(builtin::TimeTool::new());
+        let json_tool = Arc::new(builtin::JsonTool::new());
+
+        let development_tool_names = [
+            shell_tool.name().to_string(),
+            read_file_tool.name().to_string(),
+            write_file_tool.name().to_string(),
+            list_dir_tool.name().to_string(),
+            apply_patch_tool.name().to_string(),
+            echo_tool.name().to_string(),
+            time_tool.name().to_string(),
+            json_tool.name().to_string(),
+        ];
+        let builtin_tool_names = [
+            echo_tool.name().to_string(),
+            time_tool.name().to_string(),
+            json_tool.name().to_string(),
+        ];
+
+        self.register(shell_tool).await;
+        self.register(read_file_tool).await;
+        self.register(write_file_tool).await;
+        self.register(list_dir_tool).await;
+        self.register(apply_patch_tool).await;
+        self.register(echo_tool).await;
+        self.register(time_tool).await;
+        self.register(json_tool).await;
+
+        tracing::info!(
+            count = builtin_tool_names.len(),
+            builtin_tools = ?builtin_tool_names,
+            "Registered builtin tools"
+        );
+        tracing::info!(
+            count = development_tool_names.len(),
+            development_tools = ?development_tool_names,
+            "Registered development tools"
+        );
     }
 
     /// Register skill discovery and loading tools.
     pub async fn register_skill_tools(&self, skills: Arc<Vec<LoadedSkill>>) {
-        self.register(Arc::new(skill_tools::SkillListTool::new(skills.clone())))
-            .await;
-        self.register(Arc::new(skill_tools::LoadSkillTool::new(skills)))
-            .await;
-        tracing::info!("Registered 2 skill tools");
+        let skill_list_tool = Arc::new(skill_tools::SkillListTool::new(skills.clone()));
+        let load_skill_tool = Arc::new(skill_tools::LoadSkillTool::new(skills));
+        let skill_tool_names = [
+            skill_list_tool.name().to_string(),
+            load_skill_tool.name().to_string(),
+        ];
+
+        self.register(skill_list_tool).await;
+        self.register(load_skill_tool).await;
+
+        tracing::info!(
+            count = skill_tool_names.len(),
+            skill_tools = ?skill_tool_names,
+            "Registered skill tools"
+        );
     }
 }
 
