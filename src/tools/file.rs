@@ -93,7 +93,6 @@ impl Tool for ReadFileTool {
         params: serde_json::Value,
         ctx: &ToolContext,
     ) -> Result<ToolOutput, ToolError> {
-
         let path_str = require_str(&params, "path")?;
         let resolved = resolve_path(path_str, &ctx.working_dir);
 
@@ -187,7 +186,6 @@ impl Tool for WriteFileTool {
         params: serde_json::Value,
         ctx: &ToolContext,
     ) -> Result<ToolOutput, ToolError> {
-
         let path_str = require_str(&params, "path")?;
         let content = require_str(&params, "content")?;
 
@@ -212,9 +210,11 @@ impl Tool for WriteFileTool {
             ToolError::ExecutionFailed(format!("Failed to write '{}': {}", path_str, e))
         })?;
 
-        Ok(ToolOutput::text(
-            format!("Wrote {} bytes to {}", content.len(), path_str),
-        ))
+        Ok(ToolOutput::text(format!(
+            "Wrote {} bytes to {}",
+            content.len(),
+            path_str
+        )))
     }
 }
 
@@ -256,11 +256,7 @@ impl Tool for ListDirTool {
         params: serde_json::Value,
         ctx: &ToolContext,
     ) -> Result<ToolOutput, ToolError> {
-
-        let path_str = params
-            .get("path")
-            .and_then(|v| v.as_str())
-            .unwrap_or(".");
+        let path_str = params.get("path").and_then(|v| v.as_str()).unwrap_or(".");
         let resolved = resolve_path(path_str, &ctx.working_dir);
 
         let mut entries = fs::read_dir(&resolved).await.map_err(|e| {
@@ -374,7 +370,6 @@ impl Tool for ApplyPatchTool {
         params: serde_json::Value,
         ctx: &ToolContext,
     ) -> Result<ToolOutput, ToolError> {
-
         let path_str = require_str(&params, "path")?;
         let search = require_str(&params, "search")?;
         let replace = require_str(&params, "replace")?;
@@ -406,8 +401,9 @@ impl Tool for ApplyPatchTool {
             ToolError::ExecutionFailed(format!("Failed to write '{}': {}", path_str, e))
         })?;
 
-        Ok(ToolOutput::text(
-            format!("Patched {} (1 replacement)", path_str),
-        ))
+        Ok(ToolOutput::text(format!(
+            "Patched {} (1 replacement)",
+            path_str
+        )))
     }
 }

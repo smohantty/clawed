@@ -23,7 +23,11 @@ pub fn prefilter_skills<'a>(
         .iter()
         .filter_map(|skill| {
             let score = score_skill(skill, &message_lower, message);
-            if score > 0 { Some((skill, score)) } else { None }
+            if score > 0 {
+                Some((skill, score))
+            } else {
+                None
+            }
         })
         .collect();
 

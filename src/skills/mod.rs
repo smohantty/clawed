@@ -167,9 +167,8 @@ pub fn escape_xml_attr(s: &str) -> String {
 
 /// Escape prompt content to prevent tag breakout from `<skill>` delimiters.
 pub fn escape_skill_content(content: &str) -> String {
-    static SKILL_TAG_RE: std::sync::LazyLock<Regex> = std::sync::LazyLock::new(|| {
-        Regex::new(r"(?i)</?[\s\x00]*skill").unwrap()
-    });
+    static SKILL_TAG_RE: std::sync::LazyLock<Regex> =
+        std::sync::LazyLock::new(|| Regex::new(r"(?i)</?[\s\x00]*skill").unwrap());
 
     SKILL_TAG_RE
         .replace_all(content, |caps: &regex::Captures| {

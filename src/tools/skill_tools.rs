@@ -151,6 +151,12 @@ impl Tool for LoadSkillTool {
     ) -> Result<ToolOutput, ToolError> {
         let name = require_str(&params, "name")?;
         let resource_path = params.get("path").and_then(|v| v.as_str());
+        tracing::info!(
+            target: "clawed::skills",
+            skill_name = %name,
+            resource_path = ?resource_path,
+            "load_skill requested"
+        );
         tracing::event!(
             target: "clawed::audit",
             tracing::Level::DEBUG,

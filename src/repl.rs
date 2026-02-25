@@ -1,7 +1,7 @@
 //! Interactive REPL for the agent.
 
-use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
+use rustyline::error::ReadlineError;
 
 use crate::agent::Agent;
 use crate::llm::ReasoningContext;
@@ -19,9 +19,8 @@ pub async fn run_repl(agent: &Agent) -> Result<(), crate::error::Error> {
         let _ = std::fs::create_dir_all(parent);
     }
 
-    let mut rl = DefaultEditor::new().map_err(|e| {
-        crate::error::Error::Config(format!("Failed to create editor: {}", e))
-    })?;
+    let mut rl = DefaultEditor::new()
+        .map_err(|e| crate::error::Error::Config(format!("Failed to create editor: {}", e)))?;
 
     let _ = rl.load_history(&history_path);
 
@@ -128,7 +127,10 @@ async fn handle_command(
             CommandResult::Continue
         }
         _ => {
-            println!("Unknown command: {}. Type /help for available commands.", command);
+            println!(
+                "Unknown command: {}. Type /help for available commands.",
+                command
+            );
             CommandResult::Continue
         }
     }

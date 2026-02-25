@@ -8,7 +8,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 
 use crate::error::ToolError;
-use crate::tools::{require_param, require_str, Tool, ToolContext, ToolOutput};
+use crate::tools::{Tool, ToolContext, ToolOutput, require_param, require_str};
 
 // ---------------------------------------------------------------------------
 // EchoTool
@@ -154,8 +154,7 @@ impl Tool for TimeTool {
         };
 
         Ok(ToolOutput::text(
-            serde_json::to_string_pretty(&result)
-                .unwrap_or_else(|_| result.to_string()),
+            serde_json::to_string_pretty(&result).unwrap_or_else(|_| result.to_string()),
         ))
     }
 }
@@ -231,12 +230,9 @@ impl Tool for JsonTool {
                 serde_json::Value::String(json_str)
             }
             "query" => {
-                let path =
-                    params.get("path").and_then(|v| v.as_str()).ok_or_else(|| {
-                        ToolError::InvalidParameters(
-                            "missing 'path' parameter for query".to_string(),
-                        )
-                    })?;
+                let path = params.get("path").and_then(|v| v.as_str()).ok_or_else(|| {
+                    ToolError::InvalidParameters("missing 'path' parameter for query".to_string())
+                })?;
                 let value = parse_json_input(data)?;
                 query_json(&value, path)?
             }

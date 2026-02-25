@@ -117,12 +117,13 @@ impl SkillRegistry {
         source_dir: &Path,
     ) -> Result<LoadedSkill, SkillRegistryError> {
         // Check file size
-        let metadata = tokio::fs::metadata(skill_file).await.map_err(|e| {
-            SkillRegistryError::ReadError {
-                path: skill_file.display().to_string(),
-                reason: e.to_string(),
-            }
-        })?;
+        let metadata =
+            tokio::fs::metadata(skill_file)
+                .await
+                .map_err(|e| SkillRegistryError::ReadError {
+                    path: skill_file.display().to_string(),
+                    reason: e.to_string(),
+                })?;
 
         if metadata.len() > MAX_PROMPT_FILE_SIZE {
             return Err(SkillRegistryError::FileTooLarge {
@@ -132,13 +133,12 @@ impl SkillRegistry {
             });
         }
 
-        let raw_content =
-            tokio::fs::read_to_string(skill_file)
-                .await
-                .map_err(|e| SkillRegistryError::ReadError {
-                    path: skill_file.display().to_string(),
-                    reason: e.to_string(),
-                })?;
+        let raw_content = tokio::fs::read_to_string(skill_file).await.map_err(|e| {
+            SkillRegistryError::ReadError {
+                path: skill_file.display().to_string(),
+                reason: e.to_string(),
+            }
+        })?;
 
         let parsed = parse_skill_md(&raw_content).map_err(|e| SkillRegistryError::ParseError {
             name: source_dir
@@ -156,8 +156,7 @@ impl SkillRegistry {
         let hash = format!("sha256:{:x}", hasher.finalize());
 
         // Compile patterns
-        let compiled_patterns =
-            LoadedSkill::compile_patterns(&parsed.manifest.activation.patterns);
+        let compiled_patterns = LoadedSkill::compile_patterns(&parsed.manifest.activation.patterns);
 
         // Pre-compute lowercased keywords and tags
         let lowercased_keywords = parsed

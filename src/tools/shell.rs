@@ -50,8 +50,14 @@ static DANGEROUS_PATTERNS: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
 
 /// Environment variables to strip from child processes (secrets/keys).
 const SENSITIVE_ENV_PATTERNS: &[&str] = &[
-    "API_KEY", "SECRET", "TOKEN", "PASSWORD", "CREDENTIAL",
-    "ANTHROPIC_", "OPENAI_", "AWS_SECRET",
+    "API_KEY",
+    "SECRET",
+    "TOKEN",
+    "PASSWORD",
+    "CREDENTIAL",
+    "ANTHROPIC_",
+    "OPENAI_",
+    "AWS_SECRET",
 ];
 
 /// Detect injection patterns in commands.
@@ -130,7 +136,6 @@ impl Tool for ShellTool {
         params: serde_json::Value,
         ctx: &ToolContext,
     ) -> Result<ToolOutput, ToolError> {
-
         let command = require_str(&params, "command")?;
 
         // Check blocked commands
@@ -190,9 +195,9 @@ impl Tool for ShellTool {
         cmd.stdout(std::process::Stdio::piped());
         cmd.stderr(std::process::Stdio::piped());
 
-        let mut child = cmd.spawn().map_err(|e| {
-            ToolError::ExecutionFailed(format!("Failed to spawn command: {}", e))
-        })?;
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| ToolError::ExecutionFailed(format!("Failed to spawn command: {}", e)))?;
 
         // Read output with timeout
         let result = tokio::time::timeout(timeout, async {
@@ -213,9 +218,7 @@ impl Tool for ShellTool {
 
         match result {
             Ok((stdout_buf, stderr_buf, status)) => {
-                let exit_code = status
-                    .map(|s| s.code().unwrap_or(-1))
-                    .unwrap_or(-1);
+                let exit_code = status.map(|s| s.code().unwrap_or(-1)).unwrap_or(-1);
 
                 let mut stdout = String::from_utf8_lossy(&stdout_buf).to_string();
                 let stderr = String::from_utf8_lossy(&stderr_buf).to_string();
