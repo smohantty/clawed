@@ -4,7 +4,7 @@ This document describes how clawed works end-to-end: startup, the agent loop, LL
 
 ## Overview
 
-Clawed is a minimal autonomous chat agent written in Rust. It connects to an LLM (Anthropic, OpenAI, or Gemini via rig-core), gives it a set of tools, and runs a loop: the LLM decides what to do, clawed executes the tool calls, feeds results back, and repeats until the LLM returns a text response.
+Clawed is a minimal autonomous chat agent written in Rust. It connects to an LLM (Anthropic, OpenAI, or Gemini via rig-core, plus an optional `claude -p` CLI bridge), gives it a set of tools, and runs a loop: the LLM decides what to do, clawed executes the tool calls, feeds results back, and repeats until the LLM returns a text response.
 
 Two modes of operation:
 
@@ -18,7 +18,7 @@ Startup sequence in `main.rs`:
 ```
 CLI parse (clap)
     → ClawedConfig::from_env()      load .env, env vars
-    → create_llm_provider()          build LLM client via rig-core (Anthropic/OpenAI/Gemini)
+    → create_llm_provider()          build LLM provider (rig-core API providers or Claude CLI bridge)
     → ToolRegistry::new()            create empty registry
     → register_dev_tools()           register all 8 tools
     → SkillRegistry::discover_all()  scan ~/.clawed/skills/
@@ -27,6 +27,8 @@ CLI parse (clap)
     → if -p: agent.run_task()        single-shot
       else:  repl::run_repl()        interactive REPL
 ```
+
+When `CLAWED_BACKEND=claude_cli`, REPL mode is blocked and the process exits with an explanatory error. That backend is intentionally single-shot only.
 
 ## Agent Loop
 
@@ -93,8 +95,25 @@ The first is text-only completion; the second adds tool definitions and returns 
 - **Anthropic**: `anthropic::Client::new(key)` → `client.completion_model(name)`
 - **OpenAI**: `openai::Client::new(key).completions_api()` → `client.completion_model(name)` (uses Chat Completions API, not Responses API)
 - **Gemini**: `gemini::Client::new(key)` → `client.completion_model(name)`
+- **Claude CLI**: `ClaudeCliProvider` shells out to `claude -p --output-format json --tools ""`
 
-All three return a `RigAdapter` wrapping the rig-core model, so the rest of clawed is backend-agnostic.
+The API backends return a `RigAdapter` wrapping the rig-core model. The Claude CLI backend returns `ClaudeCliProvider`, which still implements the same `LlmProvider` trait so the rest of clawed remains backend-agnostic.
+
+### Claude CLI Provider
+
+`ClaudeCliProvider` (`llm/claude_cli_provider.rs`) runs one-shot completions by invoking:
+
+```bash
+claude -p --input-format text --output-format json --tools "" --no-session-persistence --model <model>
+```
+
+The conversation transcript is passed via stdin.
+
+Design details:
+- **Text-only bridge**: Claude tools are disabled (`--tools ""`), so clawed keeps control over tool policy.
+- **Model alias normalization**: `opus4.6` resolves to `claude-opus-4-6` before invocation.
+- **JSON contract**: Parses structured output (`result`, `usage.input_tokens`, `usage.output_tokens`) and maps failures to `LlmError::RequestFailed`.
+- **Timeouts**: Each call enforces `CLAUDE_CLI_TIMEOUT_SECS` (default 300).
 
 ### Rig Adapter
 
@@ -264,13 +283,15 @@ Detected patterns are logged as warnings and the output is marked `sanitized="tr
 
 | Env Variable | Default | Description |
 |---|---|---|
-| `CLAWED_BACKEND` | `anthropic` | LLM backend (`anthropic`, `openai`, `gemini`) |
+| `CLAWED_BACKEND` | `anthropic` | LLM backend (`anthropic`, `openai`, `gemini`, `claude_cli`) |
 | `ANTHROPIC_API_KEY` | *required for anthropic* | Anthropic API key |
 | `CLAWED_MODEL` | `claude-sonnet-4-20250514` | Anthropic model |
 | `OPENAI_API_KEY` | *required for openai* | OpenAI API key |
 | `OPENAI_MODEL` | `gpt-4o` | OpenAI model |
 | `GEMINI_API_KEY` | *required for gemini* | Gemini API key |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model |
+| `CLAUDE_CLI_MODEL` | `opus4.6` | Claude CLI model (when `CLAWED_BACKEND=claude_cli`) |
+| `CLAUDE_CLI_TIMEOUT_SECS` | `300` | Timeout per `claude -p` call |
 | `CLAWED_SKILLS_DIR` | `~/.clawed/skills` | Skills directory |
 | `CLAWED_MAX_TURNS` | `50` | Max agent loop iterations |
 

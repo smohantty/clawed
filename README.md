@@ -2,7 +2,7 @@
 
 Minimal self-sufficient Rust chat agent with tool use and skills.
 
-Built on [rig-core](https://github.com/0xPlaygrounds/rig) for LLM abstraction, supporting Anthropic, OpenAI, and Gemini backends. Designed to run locally on any machine — no containers, no sandboxes required.
+Built on [rig-core](https://github.com/0xPlaygrounds/rig) for API-backed providers (Anthropic, OpenAI, Gemini) with an additional `claude -p` backend for keyless single-shot use. Designed to run locally on any machine — no containers, no sandboxes required.
 
 ## Quick Start
 
@@ -18,6 +18,10 @@ cargo run
 # Gemini
 echo -e 'CLAWED_BACKEND=gemini\nGEMINI_API_KEY=...' > .env
 cargo run
+
+# Claude CLI (single-shot only; no API key env var required)
+echo 'CLAWED_BACKEND=claude_cli' > .env
+cargo run -- -p "explain this codebase"
 
 # Single-shot mode
 cargo run -- -p "what files are in the current directory?"
@@ -53,6 +57,7 @@ src/
     provider.rs        LlmProvider trait, ChatMessage, ToolCall, ToolDefinition
     reasoning.rs       Reasoning engine, respond_with_tools, tool call recovery
     rig_adapter.rs     rig-core CompletionModel adapter
+    claude_cli_provider.rs  `claude -p` adapter for single-shot calls
   tools/
     mod.rs             Tool trait, ToolRegistry
     shell.rs           Shell command execution
@@ -166,27 +171,35 @@ Goodbye!
 
 ## Backends
 
-Clawed supports three LLM backends via the `CLAWED_BACKEND` env var:
+Clawed supports four LLM backends via the `CLAWED_BACKEND` env var:
 
 | Backend | Value | API Key Env Var | Default Model |
 |---------|-------|-----------------|---------------|
 | Anthropic | `anthropic` (default) | `ANTHROPIC_API_KEY` | `claude-sonnet-4-20250514` |
 | OpenAI | `openai` | `OPENAI_API_KEY` | `gpt-4o` |
 | Gemini | `gemini` | `GEMINI_API_KEY` | `gemini-2.5-flash` |
+| Claude CLI | `claude_cli` | *(none)* | `opus4.6` |
 
-Only the API key for the selected backend is required. The `--model` CLI flag overrides the active backend's default model.
+Only the API key for the selected API backend is required. The `--model` CLI flag overrides the active backend's default model.
+
+`claude_cli` backend notes:
+- Uses `claude -p --input-format text --output-format json --tools ""` under the hood.
+- `CLAUDE_CLI_MODEL=opus4.6` is normalized to `claude-opus-4-6` for CLI compatibility.
+- Single-shot mode only (`-p`); REPL is intentionally unsupported for this backend.
 
 ## Configuration
 
 | Env Variable | Default | Description |
 |---|---|---|
-| `CLAWED_BACKEND` | `anthropic` | LLM backend (`anthropic`, `openai`, `gemini`) |
+| `CLAWED_BACKEND` | `anthropic` | LLM backend (`anthropic`, `openai`, `gemini`, `claude_cli`) |
 | `ANTHROPIC_API_KEY` | *required for anthropic* | Anthropic API key |
 | `CLAWED_MODEL` | `claude-sonnet-4-20250514` | Anthropic model |
 | `OPENAI_API_KEY` | *required for openai* | OpenAI API key |
 | `OPENAI_MODEL` | `gpt-4o` | OpenAI model |
 | `GEMINI_API_KEY` | *required for gemini* | Gemini API key |
 | `GEMINI_MODEL` | `gemini-2.5-flash` | Gemini model |
+| `CLAUDE_CLI_MODEL` | `opus4.6` | Claude CLI model (used when `CLAWED_BACKEND=claude_cli`) |
+| `CLAUDE_CLI_TIMEOUT_SECS` | `300` | Timeout for each `claude -p` call |
 | `CLAWED_SKILLS_DIR` | `~/.clawed/skills` | Skills directory |
 | `CLAWED_MAX_TURNS` | `50` | Max agent loop iterations |
 

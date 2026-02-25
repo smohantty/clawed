@@ -8,6 +8,7 @@ pub enum LlmBackend {
     Anthropic,
     OpenAi,
     Gemini,
+    ClaudeCli,
 }
 
 /// Application configuration.
@@ -20,6 +21,8 @@ pub struct ClawedConfig {
     pub openai_model: String,
     pub gemini_api_key: Option<String>,
     pub gemini_model: String,
+    pub claude_cli_model: String,
+    pub claude_cli_timeout_secs: u64,
     pub skills_dir: PathBuf,
     pub max_turns: u32,
     pub skills_enabled: bool,
@@ -40,6 +43,7 @@ impl ClawedConfig {
             "anthropic" => LlmBackend::Anthropic,
             "openai" => LlmBackend::OpenAi,
             "gemini" => LlmBackend::Gemini,
+            "claude_cli" => LlmBackend::ClaudeCli,
             other => return Err(format!("Unknown backend: {}", other)),
         };
 
@@ -70,11 +74,19 @@ impl ClawedConfig {
         let model = std::env::var("CLAWED_MODEL")
             .unwrap_or_else(|_| "claude-sonnet-4-20250514".to_string());
 
-        let openai_model =
-            std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
+        let openai_model = std::env::var("OPENAI_MODEL").unwrap_or_else(|_| "gpt-4o".to_string());
 
         let gemini_model =
             std::env::var("GEMINI_MODEL").unwrap_or_else(|_| "gemini-2.5-flash".to_string());
+
+        let claude_cli_model =
+            std::env::var("CLAUDE_CLI_MODEL").unwrap_or_else(|_| "opus4.6".to_string());
+
+        let claude_cli_timeout_secs = std::env::var("CLAUDE_CLI_TIMEOUT_SECS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .filter(|v| *v > 0)
+            .unwrap_or(300);
 
         let skills_dir = std::env::var("CLAWED_SKILLS_DIR")
             .map(PathBuf::from)
@@ -98,6 +110,8 @@ impl ClawedConfig {
             openai_model,
             gemini_api_key,
             gemini_model,
+            claude_cli_model,
+            claude_cli_timeout_secs,
             skills_dir,
             max_turns,
             skills_enabled: true,

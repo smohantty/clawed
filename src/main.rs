@@ -67,6 +67,7 @@ async fn main() {
             config::LlmBackend::Anthropic => config.model = model,
             config::LlmBackend::OpenAi => config.openai_model = model,
             config::LlmBackend::Gemini => config.gemini_model = model,
+            config::LlmBackend::ClaudeCli => config.claude_cli_model = model,
         }
     }
     config.max_turns = cli.max_turns;
@@ -121,6 +122,11 @@ async fn main() {
             }
         }
     } else {
+        if config.backend == config::LlmBackend::ClaudeCli {
+            eprintln!("The claude_cli backend supports single-shot mode only. Use -p/--prompt.");
+            std::process::exit(1);
+        }
+
         // Interactive REPL mode
         if let Err(e) = repl::run_repl(&agent).await {
             eprintln!("REPL error: {}", e);
