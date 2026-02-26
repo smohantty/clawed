@@ -33,8 +33,18 @@ fn normalize_lexical(path: &Path) -> PathBuf {
 }
 
 /// Resolve a path to absolute, using working_dir as base for relative paths.
+/// Expands leading `~` or `~/` to the user's home directory.
 fn resolve_path(path_str: &str, working_dir: &Path) -> PathBuf {
-    let path = PathBuf::from(path_str);
+    let expanded = if path_str == "~" {
+        dirs::home_dir().unwrap_or_else(|| PathBuf::from("."))
+    } else if let Some(rest) = path_str.strip_prefix("~/") {
+        dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join(rest)
+    } else {
+        PathBuf::from(path_str)
+    };
+    let path = expanded;
     if path.is_absolute() {
         path.canonicalize()
             .unwrap_or_else(|_| normalize_lexical(&path))
