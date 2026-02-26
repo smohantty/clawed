@@ -2,6 +2,32 @@
 
 use std::path::PathBuf;
 
+/// Resolve the base data directory for all clawed runtime files
+/// (skills, logs, history, etc.).
+///
+/// Resolution order:
+///   1. `CLAWED_HOME` environment variable (explicit override)
+///   2. Platform default:
+///      - Tizen: `/opt/usr/data/clawed`
+///      - Desktop: `~/.clawed`
+pub fn clawed_data_dir() -> PathBuf {
+    if let Ok(val) = std::env::var("CLAWED_HOME") {
+        return PathBuf::from(val);
+    }
+
+    #[cfg(feature = "tizen")]
+    {
+        PathBuf::from("/opt/usr/data/clawed")
+    }
+
+    #[cfg(not(feature = "tizen"))]
+    {
+        dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join(".clawed")
+    }
+}
+
 /// LLM backend provider.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LlmBackend {
@@ -90,12 +116,7 @@ impl ClawedConfig {
 
         let skills_dir = std::env::var("CLAWED_SKILLS_DIR")
             .map(PathBuf::from)
-            .unwrap_or_else(|_| {
-                dirs::home_dir()
-                    .unwrap_or_else(|| PathBuf::from("."))
-                    .join(".clawed")
-                    .join("skills")
-            });
+            .unwrap_or_else(|_| clawed_data_dir().join("skills"));
 
         let max_turns = std::env::var("CLAWED_MAX_TURNS")
             .ok()

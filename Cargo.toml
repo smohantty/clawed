@@ -54,3 +54,8 @@ rig-core = "0.30"
 
 # Filesystem paths
 dirs = "6"
+
+[features]
+default = []
+# Tizen TV platform: changes default data dir to /opt/usr/data/clawed
+tizen = []

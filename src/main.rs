@@ -51,12 +51,7 @@ fn init_logging() -> Option<tracing_appender::non_blocking::WorkerGuard> {
 
     let log_dir = std::env::var("CLAWED_LOG_DIR")
         .map(PathBuf::from)
-        .unwrap_or_else(|_| {
-            dirs::home_dir()
-                .unwrap_or_else(|| PathBuf::from("."))
-                .join(".clawed")
-                .join("logs")
-        });
+        .unwrap_or_else(|_| config::clawed_data_dir().join("logs"));
     let log_file_name = std::env::var("CLAWED_LOG_FILE")
         .ok()
         .filter(|s| !s.trim().is_empty())

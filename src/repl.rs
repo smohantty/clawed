@@ -6,13 +6,9 @@ use rustyline::error::ReadlineError;
 use crate::agent::Agent;
 use crate::llm::ReasoningContext;
 
-const HISTORY_FILE: &str = ".clawed/history.txt";
-
 /// Run the interactive REPL loop.
 pub async fn run_repl(agent: &Agent) -> Result<(), crate::error::Error> {
-    let history_path = dirs::home_dir()
-        .unwrap_or_else(|| std::path::PathBuf::from("."))
-        .join(HISTORY_FILE);
+    let history_path = crate::config::clawed_data_dir().join("history.txt");
 
     // Ensure history directory exists
     if let Some(parent) = history_path.parent() {

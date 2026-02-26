@@ -1,0 +1,12 @@
+<manifest>
+    <request>
+        <domain name="_" />
+    </request>
+    <assign>
+        <filesystem path="/usr/bin/clawed"               label="_" exec_label="none" />
+        <filesystem path="/usr/share/clawed"             label="_" />
+        <filesystem path="/opt/usr/data/clawed"          label="User::Pkg::clawed" type="transmutable" />
+        <filesystem path="/opt/usr/data/clawed/skills"   label="User::Pkg::clawed" type="transmutable" />
+        <filesystem path="/opt/usr/data/clawed/logs"     label="User::Pkg::clawed" type="transmutable" />
+    </assign>
+</manifest>
